@@ -1,0 +1,14 @@
+(version dev)
+
+(build
+ (all_platforms ((dune))))
+
+(depends
+ (all_platforms (ocaml)))
+
+(source
+ (fetch
+  (url
+   git+https://github.com/invariant-hq/thumper.git#5410a9c7fad23ae853d71896378aa815fc9a1fc8)))
+
+(dev)

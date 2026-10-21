@@ -1,0 +1,7 @@
+(lang dune 3.24)
+; dune-workspace marks this folder as root for workspace, then builds all tgt.
+; dune-workspace uses S-expressions
+; because sofo's nx, rune etc sit inside this workspace, they resolve to the local raven/source, not the released version
+
+; enables dune's own package management instead of using opam
+(pkg enabled)

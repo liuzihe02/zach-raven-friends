@@ -1,0 +1,5 @@
+(executable
+  (name mlp)
+  (modules mlp)
+  (libraries base stdio nx)
+  (preprocess (pps ppx_sexp_message ppx_ptree)))
