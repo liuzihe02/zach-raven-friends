@@ -1,0 +1,9 @@
+(executable
+ (name linreg)
+ (public_name linreg) ; expose to run exec
+ (modules linreg)
+ (libraries base stdio nx rune vega)
+ (preprocess
+  (pps ppx_ptree)))
+
+;preprocess means code rewriters that run before compilation. ppx_ptree expands record into the structure
