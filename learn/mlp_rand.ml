@@ -1,46 +1,97 @@
-open Base
-open Nx
+(* MLP with Vega/Rune *)
+open Nx (* global namespace *)
 
-let print s = Stdio.print_endline (Sexp.to_string_hum s)
+(* define dims *)
+let d_in = 2
+let d_hidden = 4
+let d_out = 2
+let bs = 128
 
-(* MLP teacher-student setup *)
-
-module MLP = struct
-  module P = struct
-    type 'a t =
-      { weights : 'a
-      ; biases : 'a
+(* big nn module, struct is just declaring module body *)
+module Mlp = struct
+  (*reusable params module*)
+  module Params = struct
+    type t =
+      { w1 : Nx.float32_t
+      ; w2 : Nx.float32_t
+      ; b1 : Nx.float32_t
+      ; b2 : Nx.float32_t
       }
     [@@deriving ptree]
+    (* [@@deriving ptree] adds [walk] and [ptree : t Nx.Ptree.t] beside [t];
+       P.ptree is the Raven structure for rune vega etc *)
   end
 
-  let init n_in n_out =
+  let init d_in d_hidden d_out =
     let open Infix in
-    let weights =
-      let z = Float.(sqrt (of_int n_in)) in
-      randn float32 [| n_in; n_out |] /$ z
-    in
-    let biases = randn float32 [| n_out |] in
-    P.{ weights; biases }
+    (* He init, for ReLU *)
+    let scale fan_in = Float.sqrt (2.0 /. Float.of_int fan_in) in
+    let w1 = randn float32 [| d_in; d_hidden |] *$ scale d_in
+    and w2 = randn float32 [| d_hidden; d_out |] *$ scale d_hidden
+    and b1 = randn float32 [| d_hidden |]
+    and b2 = randn float32 [| d_out |] in
+    Params.{ w1; w2; b1; b2 }
 
-  (* x : (batch_size, n_in) → input tensor
-     return (bs, n_out) output tensor *)
-  let eval params x =
+  let forward x (p : Params.t) =
     let open Infix in
-    tanh ((x *@ params.P.weights) + params.biases)
+    let a = Kaun.Fn.relu ((x *@ p.w1) + p.b1) in
+    let out = (a *@ p.w2) + p.b2 in
+    out
 end
 
-let n_in = 16
-let n_out = 8
-let bs = 128
-let teacher = MLP.init n_in n_out
-let student = MLP.init n_in n_out
+(* fixed value *)
+let params_teacher = Mlp.init d_in d_hidden d_out
 
-(* use the teacher to create some data to train the student on *)
+(* create training data *)
 let data =
-  let x = randn float32 [| bs; n_in |] in
-  let y = MLP.eval teacher x in
+  let x = randn float32 [| bs; d_in |] in
+  let y = Mlp.forward x params_teacher in
   x, y
 
-(* construct a training loop with Vega's adam optimiser to optimise
-   the student parameters such that it captures the (x,y) data pairs obtained above from the teacher *)
+(* Train the student, with Rune for the gradients and Vega's Adam for the update. *)
+let lr = Vega.lr 0.001
+
+(* initial student params *)
+let params_student = Mlp.init d_in d_hidden d_out
+
+(* -- Optimiser state --
+   adam_init takes the structure (ptree) and the actual params (tensors)
+   Vega is generic over any params type and OCaml erases types at
+   runtime, so the structure has to be passed in... (??confused??) *)
+
+let ptree = Mlp.Params.ptree (* ptree object *)
+let st = Vega.adam_init ptree params_student
+
+(* -- Loss --
+   accesses global data object *)
+let loss params =
+  let x, y = data in
+  Kaun.Loss.mse (Mlp.forward x params) y
+
+(* -- Step --
+   step : params -> adam state -> params * adam state * loss *)
+let step params st =
+  (* value_and_grad : 'p Ptree.t -> ('p -> ('c, 'd) t) -> 'p -> ('c, 'd) t * 'p --- why is this impossible?? to read??
+     args: structure, loss fn (params -> scalar), params
+     returns: (loss value, grads) *)
+  let l, grads = Rune.value_and_grad ptree loss params in
+  let params, st = Vega.adam_step ptree ~lr st ~params ~grads in
+  params, st, l
+
+(* -- Training loop --
+   train : int -> Mlp.P.t -> Mlp.P.t Vega.adam_state -> Mlp.P.t
+   Recursive, but carrying params AND Adam state *)
+let steps = 10000
+
+let rec train ~i params st =
+  if i = steps
+  then params
+  else (
+    let params, st, l = step params st in
+    if i mod 1000 = 0 then Stdio.printf "%d %f\n" i (Nx.item [] l);
+    (* confusing syntax *)
+    train ~i:(i + 1) params st)
+
+(* -- Main (let () = ...) --
+   run train 0 params_student st, print the final loss. *)
+let _ = train ~i:0 params_student st

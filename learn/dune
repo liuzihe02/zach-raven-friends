@@ -2,6 +2,6 @@
 (executables
  (names linreg mlp_rand)
  (public_names linreg mlp_rand)
- (libraries base stdio nx rune vega)
+ (libraries base stdio nx rune vega kaun)
  (preprocess
   (pps ppx_sexp_message ppx_ptree)))
