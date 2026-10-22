@@ -11,7 +11,7 @@ Exercises lead first, theory comes just in time to integrate. Do the stages in o
   - main exercise
   - fuller read after
     - same idea in JAX alongside
-  - check, predict-then-run
+  - check, predict-then-run: the tutor poses predictions from Zach's actual code
 - Theory lives in `~/notes` (`ml/ml-systems/`, `cs/ocaml/ocaml-notes.md`, `research/sofo/`) and in the Raven docs (`raven/packages/*/doc`, the `.mli` files)
   - The notes are WIP and change often, so pick whatever currently covers a stage's concepts
 - Quizzes: no stored question bank
@@ -19,24 +19,23 @@ Exercises lead first, theory comes just in time to integrate. Do the stages in o
 
 ### Stages
 
-1. **Linear regression by hand** (`linreg/`, Nx only, eager)
-   - Build: hand-derived gradients and plain gradient descent; then swap in `Rune.value_and_grad` and check it matches the hand gradients
+1. **Linear regression by hand** (`linreg.ml`, Nx only, eager)
+   - Build: hand-derived gradients and plain gradient descent
    - Concepts:
-     - records and structures (`Nx.Ptree`)
-     - broadcasting the bias
-     - reverse-mode autodiff: what `value_and_grad` automates
-   - JAX side: `jax.value_and_grad` against a hand-written gradient
-   - Check: the notes' running example gradient, which uses L = 1/(2n)·Σ rather than a plain mean
-2. **MLP on random data with Adam** (`mnist/mlp.ml`, Rune + Vega, eager)
+     - records
+     - broadcasting the bias (implicitly did it in `Nx.Infinix`)
+   - JAX side: a hand-written gradient and `params - lr * grad` with `jax.numpy`
+2. **MLP on random data with Adam** (`mlp_rand.ml`, Rune + Vega, eager)
    - Build: Rune for the gradients, `Vega.adam_step` for the update
    - Concepts:
      - nested structures and `[@@deriving ptree]`
+     - reverse-mode autodiff: what `Rune.value_and_grad` automates
      - an optimiser as
        - init plus step
        - with state shaped like the parameters
      - explicit RNG keys
      - no implicit dtype promotion
-   - JAX side: pytrees, `jax.random` keys, `optax.adam`
+   - JAX side: pytrees, `jax.random` keys, `jax.value_and_grad`, `optax.adam`
 3. **Compile the training step** (needs `clang`)
    - Concepts:
      - tracing
