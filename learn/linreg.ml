@@ -27,9 +27,9 @@ type params =
 
 (* -- Loss --
    A function: params -> scalar tensor. Predict, subtract y, square, average. *)
-let residual (params : params) data_y =
-  let predict = Nx.Infix.((data_x *@ params.w) + params.b) in
-  Nx.Infix.(predict - data_y)
+let residual x y (params : params) =
+  let predict = Nx.Infix.((x *@ params.w) + params.b) in
+  Nx.Infix.(predict - y)
 
 let loss residual =
   let squares = Nx.square residual in
@@ -37,11 +37,14 @@ let loss residual =
 
 (* -- Gradients (by hand) --
    A function: params -> gradients, returning a params record { w; b } *)
-let grad (params : params) =
-  let r = residual params data_y in
+(* let grad of any general data x y*)
+let grad x y (params : params) =
+  let r = residual x y params in
+  let scale = 2.0 /. Float.of_int (Nx.dim 0 x) in
+  (* take dim from x dont hardcode global*)
   (* custom grad functions for the different params *)
-  let dw = Nx.Infix.(Nx.transpose data_x *@ r *$ (2.0 /. Float.of_int n)) in
-  let db = Nx.Infix.(Nx.sum ~axes:[ 0 ] r *$ (2.0 /. Float.of_int n)) in
+  let dw = Nx.Infix.(Nx.transpose x *@ r *$ scale) in
+  let db = Nx.Infix.(Nx.sum ~axes:[ 0 ] r *$ scale) in
   { w = dw; b = db }
 
 (* -- Initial params --
@@ -54,19 +57,19 @@ let steps = 10000
 
 (* step : params -> params
    One gradient-descent update*)
-let step (params : params) =
-  let g = grad params in
+let step x y (params : params) =
+  let g = grad x y params in
   (* you cant apply tensor operations on a ptree, only tensors*)
   { w = Nx.Infix.(params.w - (g.w *$ lr)); b = Nx.Infix.(params.b - (g.b *$ lr)) }
 
 (* train : int -> params -> params *)
-let rec train i params =
+let rec train x y i params =
   if i = steps
   then params (* base case done: return the final state *)
-  else train (i + 1) (step params)
+  else train x y (i + 1) (step x y params)
 
 (* main *)
-let params_final = train 0 params_init
+let params_final = train data_x data_y 0 params_init
 
 (*check *)
 let () =
