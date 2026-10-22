@@ -1,0 +1,7 @@
+; one executable per stage; run any of them with `dune exec <name>`
+(executables
+ (names linreg mlp_rand)
+ (public_names linreg mlp_rand)
+ (libraries base stdio nx rune vega)
+ (preprocess
+  (pps ppx_sexp_message ppx_ptree)))
