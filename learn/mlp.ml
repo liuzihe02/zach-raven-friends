@@ -1,5 +1,5 @@
 (* MLP with Vega/Rune *)
-open Nx (* global namespace *)
+(* no open Nx for clarity of namespace*)
 
 (* define dims *)
 let d_in = 2
@@ -23,28 +23,30 @@ module Mlp = struct
   end
 
   let init d_in d_hidden d_out =
-    let open Infix in
-    (* He init, for ReLU *)
-    let scale fan_in = Float.sqrt (2.0 /. Float.of_int fan_in) in
-    let w1 = randn float32 [| d_in; d_hidden |] *$ scale d_in
-    and w2 = randn float32 [| d_hidden; d_out |] *$ scale d_hidden
-    and b1 = randn float32 [| d_hidden |]
-    and b2 = randn float32 [| d_out |] in
-    Params.{ w1; w2; b1; b2 }
+    Nx.Infix.(
+      (* He init, for ReLU *)
+      let scale fan_in = Float.sqrt (2.0 /. Float.of_int fan_in) in
+      let w1 = Nx.randn Nx.float32 [| d_in; d_hidden |] *$ scale d_in
+      and w2 = Nx.randn Nx.float32 [| d_hidden; d_out |] *$ scale d_hidden
+      and b1 = Nx.randn Nx.float32 [| d_hidden |]
+      and b2 = Nx.randn Nx.float32 [| d_out |] in
+      Params.{ w1; w2; b1; b2 })
 
   let forward x (p : Params.t) =
-    let open Infix in
-    let a = Kaun.Fn.relu ((x *@ p.w1) + p.b1) in
-    let out = (a *@ p.w2) + p.b2 in
-    out
+    Nx.Infix.(
+      let a = Kaun.Fn.relu ((x *@ p.w1) + p.b1) in
+      let out = (a *@ p.w2) + p.b2 in
+      out)
 end
 
 (* fixed value *)
 let params_teacher = Mlp.init d_in d_hidden d_out
 
-(* create training data *)
+(* create training data
+   careful this passed in global scope
+   annoying for jit/minibatches later *)
 let data =
-  let x = randn float32 [| bs; d_in |] in
+  let x = Nx.randn Nx.float32 [| bs; d_in |] in
   let y = Mlp.forward x params_teacher in
   x, y
 
@@ -69,9 +71,14 @@ let loss params =
   Kaun.Loss.mse (Mlp.forward x params) y
 
 (* -- Step --
-   step : params -> adam state -> params * adam state * loss *)
+   step : params -> adam_state -> params * adam state * loss *)
 let step params st =
-  (* value_and_grad : 'p Ptree.t -> ('p -> ('c, 'd) t) -> 'p -> ('c, 'd) t * 'p --- why is this impossible?? to read??
+  (* value_and_grad :
+     'p Ptree.t ->
+     ('p -> ('c, 'd) t) ->
+     'p ->
+     ('c, 'd) t * 'p
+     --- why is this impossible?? to read??
      args: structure, loss fn (params -> scalar), params
      returns: (loss value, grads) *)
   let l, grads = Rune.value_and_grad ptree loss params in
