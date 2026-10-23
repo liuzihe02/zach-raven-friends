@@ -28,6 +28,7 @@ type params =
 (* -- Loss --
    A function: params -> scalar tensor. Predict, subtract y, square, average. *)
 let residual x y (params : params) =
+  (* note that Nx.Infix.(...) is same as let open with namespace *)
   let predict = Nx.Infix.((x *@ params.w) + params.b) in
   Nx.Infix.(predict - y)
 
