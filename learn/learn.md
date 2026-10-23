@@ -25,7 +25,7 @@ Exercises lead first, theory comes just in time to integrate. Do the stages in o
      - records
      - broadcasting the bias (implicitly did it in `Nx.Infinix`)
    - JAX side: a hand-written gradient and `params - lr * grad` with `jax.numpy`
-2. **MLP on random data with Adam** (`mlp_rand.ml`, Rune + Vega, eager)
+2. **MLP on random data with Adam** (`mlp.ml`, Rune + Vega, eager)
    - Build: Rune for the gradients, `Vega.adam_step` for the update
    - Concepts:
      - nested structures and `[@@deriving ptree]`
@@ -58,9 +58,6 @@ Exercises lead first, theory comes just in time to integrate. Do the stages in o
      - the sketched GGN and its damped solve
      - totals and lanes
    - JAX side: `vmap(jvp)` and the lab's `jax/api.py`
-6. **Mini forward-mode AD with OCaml effects**
-   - Concepts: effect handlers, transformations as interpreters, nesting and perturbation confusion
-   - JAX side: Autodidax2
 
 ## Agentic Learning
 
