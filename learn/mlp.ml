@@ -43,7 +43,7 @@ end
 let params_teacher = Mlp.init d_in d_hidden d_out
 
 (* create training data
-   careful this passed in global scope
+   CAREFUL this is fixed global data, will be compiled
    annoying for jit/minibatches later *)
 let data =
   let x = Nx.randn Nx.float32 [| bs; d_in |] in
@@ -61,7 +61,8 @@ let params_student = Mlp.init d_in d_hidden d_out
    Vega is generic over any params type and OCaml erases types at
    runtime, so the structure has to be passed in... (??confused??) *)
 
-let ptree = Mlp.Params.ptree (* ptree object *)
+(* point to our custom structure **)
+let ptree = Mlp.Params.ptree
 let st = Vega.adam_init ptree params_student
 
 (* -- Loss --
