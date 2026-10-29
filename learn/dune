@@ -1,7 +1,7 @@
 ; one executable per stage; run any of them with `dune exec <name>`
 (executables
- (names linreg mlp mlp_jit mnist_mlp)
- (public_names linreg mlp mlp_jit mnist_mlp)
- (libraries base stdio nx rune vega kaun kaun.datasets)
+ (names linreg mlp mlp_jit mnist_mlp mnist_sofo_eager)
+ (public_names linreg mlp mlp_jit mnist_mlp mnist_sofo_eager)
+ (libraries base stdio nx rune vega kaun kaun.datasets sofo)
  (preprocess
   (pps ppx_sexp_message ppx_ptree)))
