@@ -37,6 +37,7 @@ Exercises lead first, theory comes just in time to integrate. Do the stages in o
      - no implicit dtype promotion
    - JAX side: pytrees, `jax.random` keys, `jax.value_and_grad`, `optax.adam`
 3. **Compile the training step** (`mlp_jit.ml`)
+   - Needs a recent clang: CPU jit calls `clang`, and Ubuntu 22.04's clang-14 fails on some kernels. clang-22 from apt.llvm.org works, linked as `~/.local/bin/clang`
    - Concepts:
      - tracing
      - trace once and replay per key
@@ -49,15 +50,63 @@ Exercises lead first, theory comes just in time to integrate. Do the stages in o
      - minibatches as a `Seq`
      - softmax cross-entropy
      - what a smaller last batch does to the cache
-     - vmap and per-example gradients (optional)
-   - JAX side: `vmap`
-5. **MLP with SOFO on MNIST**
+   - JAX side: `optax` training loop over minibatches
+5. **MLP with SOFO on MNIST, eager** (`mnist_sofo_eager.ml`)
+   - Build: the stage 4 MLP with `Sofo.Optim.step` instead of Adam, one eager step per minibatch
    - Concepts:
      - forward mode
      - vmap of jvp
      - the sketched GGN and its damped solve
-     - totals and lanes
+     - totals and lanes (how `Sofo.observe` marks a loss's curvature)
    - JAX side: `vmap(jvp)` and the lab's `jax/api.py`
+6. **MLP with SOFO on MNIST, compiled** (`mnist_sofo_jit.ml`)
+   - Build: `Sofo.Optim.sketch_jit` for the sketch, then the host solve and update
+   - Concepts:
+     - which half of a SOFO step compiles (the sketch) and which does not (the eigendecomposition of the k x k GGN)
+     - aux structures: the minibatch rides the compiled step as an input, not a capture
+   - Settings: match the sofo-proj session's MNIST config (784-100-10, uniform init, batch 512 with replacement, k 512, lr 1e-2, damping 1e-3, 5000 steps); not the paper's
+
+### Library Issues
+
+#### `Sofo.softmax_ce` fails inside a sketch
+
+- **Versions:** sofo-raven `f0e3ecc`, with raven `29de40a` and `519af8e` (fails on both)
+
+**Symptom**
+
+- Any `Sofo.sketch` or `Sofo.Optim.step` whose loss uses `Sofo.softmax_ce` raises on the first step:
+  - `Rune.custom_jvp: the rule uses a value its own differentiation tracks; pass it as an argument`
+- `Sofo.mse` and `Sofo.sse` work, so the linear and Lorenz examples are fine
+
+**Cause**
+
+- A sketch runs the loss under `Rune.vmap` (over the k seed directions):
+  - each seed direction does `Rune.jvp`
+    - inside it, the logits `y` are duals: a (primal, tangent) pair, where `Rune.jvp` tracks tangents too
+- `Sofo.softmax_ce` builds its curvature from `p = Nx.softmax y`
+  - see (`sofo-raven/lib/observe.ml`, `softmax_ce`)
+  - so `p` is a dual of the **same `jvp`** too
+- The mark (`Observe.mark`) is a `Rune.custom_jvp`
+  - its tangent map computes the GGN block YᵀHY with `Curv.apply`, which multiplies by probabilities `p` in `curv.ml`
+- Rune forbids a `custom_jvp` rule or its tangent map from computing with a value the same differentiation tracks (contract in `rune.mli`, check in `rune/lib/jvp.ml`, `guarded`)
+  - the message says "the rule", but the offending use is in the tangent map
+- sofo-raven's tests miss it: `test_curv.ml` checks `Curv.softmax_ce` with a constant `p`, and no test runs `Sofo.softmax_ce` inside a sketch
+- Likely introduced when sofo moved to rune's new `custom_jvp` API (commit `7136b15`, "Build and pass tests on raven main")
+
+**Fix**
+
+- Build `p` from the detached logits: `Nx.softmax (Rune.detach y)`
+  - `Rune.detach` keeps the value and drops the derivative
+- Why this is exact
+  - the GGN block YᵀH(y)Y evaluates H at the primal y
+  - `p` is only a coefficient of H, and its own tangent is never needed
+  - the lab's own OCaml (`sofo/loss.ml`, `cross_entropy_ggn`) holds the softmax constant the same way
+  - checked: the sketched GGN matches an independent Hessian (`Rune.jacfwd' (Rune.grad' ce)`) to about 1e-15
+
+#### SOFO damping on MNIST
+
+- `lr = 1.0` with `` `Relative_from_top 1e-3 `` diverges to NaN within 3 steps; `` `Relative_from_top 1e-1 `` is stable (loss 4.06 to about 0.65 in 30 steps)
+- None of our settings are the paper's: the paper's Table 4 settings diverge even in the lab's current JAX code, and the sofo-proj session's MNIST config (k 512, lr 1e-2, damping 1e-3) is its own, unvalidated
 
 ## Agentic Learning
 
@@ -137,3 +186,23 @@ When scaffolding an exercise (boilerplate, tests, data loading), leave the core 
 - [Simon Willison: using LLMs for code](https://simonwillison.net/2025/Mar/11/using-llms-for-code/) — AI as fallible TA, verify everything
 - [Mitchell Hashimoto: My AI Adoption Journey](https://mitchellh.com/writing/my-ai-adoption-journey) — do it yourself first, then have the agent redo it and compare
 - [Karpathy: build-nanogpt](https://github.com/karpathy/build-nanogpt) — build-from-scratch progression
+
+## IIB Meeting Notes
+
+### 22 Oct
+
+- Did above learning path up till stage 4
+- Next:
+  - bandit problem, left arm right arm, continuous
+  - meta-RL jane wong, botvinik
+
+### 29 Oct
+
+- Finish up Raven-ML learning path
+  - SOFO-MNIST
+    - cover cross-entropy bug
+- SOFO-NPG Theory
+  - Show formulation + H_t + Optim_Notes
+- SOFO-NPG Implementation
+  - JAX
+  - Raven-ML
