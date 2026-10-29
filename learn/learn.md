@@ -36,7 +36,7 @@ Exercises lead first, theory comes just in time to integrate. Do the stages in o
      - explicit RNG keys
      - no implicit dtype promotion
    - JAX side: pytrees, `jax.random` keys, `jax.value_and_grad`, `optax.adam`
-3. **Compile the training step** (needs `clang`)
+3. **Compile the training step** (`mlp_jit.ml`)
    - Concepts:
      - tracing
      - trace once and replay per key
@@ -44,7 +44,7 @@ Exercises lead first, theory comes just in time to integrate. Do the stages in o
      - consuming (donating) state
      - jit outermost
    - JAX side: `jax.jit`, static arguments, `donate_argnums`
-4. **MNIST classification MLP** (jitted once clang is installed, eager before)
+4. **MNIST classification MLP** (`mnist_mlp.ml`, jitted)
    - Concepts:
      - minibatches as a `Seq`
      - softmax cross-entropy
