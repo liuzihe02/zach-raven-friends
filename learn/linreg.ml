@@ -32,9 +32,7 @@ let residual x y (params : params) =
   let predict = Nx.Infix.((x *@ params.w) + params.b) in
   Nx.Infix.(predict - y)
 
-let loss residual =
-  let squares = Nx.square residual in
-  Nx.mean squares
+let loss residual = residual |> Nx.square |> Nx.mean
 
 (* -- Gradients (by hand) --
    A function: params -> gradients, returning a params record { w; b } *)
