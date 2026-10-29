@@ -13,7 +13,7 @@ git clone https://github.com/hennequin-lab/sofo-raven.git
 
 commit pins here:
 
-- raven: `29de40a34`
+- raven: `519af8e5e`
 - sofo-raven: `f0e3ecc`
 
 Then build:
